@@ -28,21 +28,33 @@ module regs (
 */
 
 // registrele efective
-reg [15:0] period;
-reg        en;
-reg [15:0] compare1;
-reg [15:0] compare2;
-reg        count_reset;
-reg [7:0]  prescale;
-reg        upnotdown;
-reg        pwm_en;
-reg [7:0]  functions;
+reg [15:0] r_period;
+reg        r_en;
+reg [15:0] r_compare1;
+reg [15:0] r_compare2;
+reg [7:0]  r_prescale;
+reg        r_upnotdown;
+reg        r_pwm_en;
+reg [7:0]  r_functions;
 
 // COUNTER_RESET: pulse care durează 2 cicluri
-reg [1:0]  count_reset_sh;
+reg [1:0]  r_count_reset_sh;
+reg        r_count_reset;
+
 
 // data_read e combinational
-reg [7:0] data_read;
+reg [7:0] r_data_read;
+
+assign period      = r_period;
+assign en          = r_en;
+assign count_reset = r_count_reset;
+assign upnotdown   = r_upnotdown;
+assign prescale    = r_prescale;
+assign pwm_en      = r_pwm_en;
+assign functions   = r_functions;
+assign compare1    = r_compare1;
+assign compare2    = r_compare2;
+assign data_read   = r_data_read;
 
 // adrese (pe 6 biți)
 localparam ADDR_PERIOD_L       = 6'h00;
@@ -63,48 +75,49 @@ localparam ADDR_FUNCTIONS      = 6'h0D;
 // WRITE logic + COUNTER_RESET pulse
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        period         <= 16'h0000;
-        en             <= 1'b0;
-        upnotdown      <= 1'b1;       // să zicem default up
-        prescale       <= 8'h00;      // prescale = 0 => div 1
-        pwm_en         <= 1'b0;
-        functions      <= 8'h00;
-        compare1       <= 16'h0000;
-        compare2       <= 16'h0000;
-        count_reset_sh <= 2'b00;
-        count_reset    <= 1'b0;
+        r_period         <= 16'h0000;
+        r_en             <= 1'b0;
+        r_upnotdown      <= 1'b0;       // să zicem default down
+        r_prescale       <= 8'h00;      // prescale = 0 => div 1
+        r_pwm_en         <= 1'b0;
+        r_functions      <= 8'h00;
+        r_compare1       <= 16'h0000;
+        r_compare2       <= 16'h0000;
+
+        r_count_reset_sh <= 2'b00;
+        r_count_reset    <= 1'b0;
     end else begin
         // update countdown pentru COUNTER_RESET
-        if (count_reset_sh != 2'b00) begin
-            count_reset_sh <= count_reset_sh - 2'b01;
+        if (r_count_reset_sh != 2'b00) begin
+            r_count_reset_sh <= r_count_reset_sh - 2'b01;
         end
 
         // derivăm semnalul de ieșire
-        count_reset <= (count_reset_sh != 2'b00);
+        r_count_reset <= (r_count_reset_sh != 2'b00);
 
         // scrieri în registre
         if (write) begin
             case (addr)
-                ADDR_PERIOD_L:      period[7:0]   <= data_write;
-                ADDR_PERIOD_H:      period[15:8]  <= data_write;
+                ADDR_PERIOD_L:      r_period[7:0]   <= data_write;
+                ADDR_PERIOD_H:      r_period[15:8]  <= data_write;
 
-                ADDR_COUNTER_EN:    en            <= data_write[0];
+                ADDR_COUNTER_EN:    r_en            <= data_write[0];
 
-                ADDR_COMPARE1_L:    compare1[7:0]  <= data_write;
-                ADDR_COMPARE1_H:    compare1[15:8] <= data_write;
+                ADDR_COMPARE1_L:    r_compare1[7:0]  <= data_write;
+                ADDR_COMPARE1_H:    r_compare1[15:8] <= data_write;
 
-                ADDR_COMPARE2_L:    compare2[7:0]  <= data_write;
-                ADDR_COMPARE2_H:    compare2[15:8] <= data_write;
+                ADDR_COMPARE2_L:    r_compare2[7:0]  <= data_write;
+                ADDR_COMPARE2_H:    r_compare2[15:8] <= data_write;
 
-                ADDR_COUNTER_RESET: count_reset_sh <= 2'b11;   // două cicluri active
+                ADDR_COUNTER_RESET: r_count_reset_sh <= 2'b11;   // două cicluri active
 
-                ADDR_PRESCALE:      prescale      <= data_write;
+                ADDR_PRESCALE:      r_prescale      <= data_write;
 
-                ADDR_UPNOTDOWN:     upnotdown     <= data_write[0];
+                ADDR_UPNOTDOWN:     r_upnotdown     <= data_write[0];
 
-                ADDR_PWM_EN:        pwm_en        <= data_write[0];
+                ADDR_PWM_EN:        r_pwm_en        <= data_write[0];
 
-                ADDR_FUNCTIONS:     functions[1:0] <= data_write[1:0];
+                ADDR_FUNCTIONS:     r_functions[1:0] <= data_write[1:0];
                 // restul bitilor din FUNCTIONS îi ignorăm
                 default: ; // adrese invalide -> ignorăm scrierea
             endcase
@@ -116,34 +129,34 @@ end
 always @(*) begin
     if (read) begin
         case (addr)
-            ADDR_PERIOD_L:      data_read = period[7:0];
-            ADDR_PERIOD_H:      data_read = period[15:8];
+            ADDR_PERIOD_L:      r_data_read = r_period[7:0];
+            ADDR_PERIOD_H:      r_data_read = r_period[15:8];
 
-            ADDR_COUNTER_EN:    data_read = {7'b0, en};
+            ADDR_COUNTER_EN:    r_data_read = {7'b0, en};
 
-            ADDR_COMPARE1_L:    data_read = compare1[7:0];
-            ADDR_COMPARE1_H:    data_read = compare1[15:8];
+            ADDR_COMPARE1_L:    r_data_read = r_compare1[7:0];
+            ADDR_COMPARE1_H:    r_data_read = r_compare1[15:8];
 
-            ADDR_COMPARE2_L:    data_read = compare2[7:0];
-            ADDR_COMPARE2_H:    data_read = compare2[15:8];
+            ADDR_COMPARE2_L:    r_data_read = r_compare2[7:0];
+            ADDR_COMPARE2_H:    r_data_read = r_compare2[15:8];
 
-            ADDR_COUNTER_RESET: data_read = 8'h00; // doar W, la citire dăm 0
+            ADDR_COUNTER_RESET: r_data_read = 8'h00; // doar W, la citire dăm 0
 
-            ADDR_COUNTER_VAL_L: data_read = counter_val[7:0];
-            ADDR_COUNTER_VAL_H: data_read = counter_val[15:8];
+            ADDR_COUNTER_VAL_L: r_data_read = counter_val[7:0];
+            ADDR_COUNTER_VAL_H: r_data_read = counter_val[15:8];
 
-            ADDR_PRESCALE:      data_read = prescale;
+            ADDR_PRESCALE:      r_data_read = r_prescale;
 
-            ADDR_UPNOTDOWN:     data_read = {7'b0, upnotdown};
+            ADDR_UPNOTDOWN:     r_data_read = {7'b0, r_upnotdown};
 
-            ADDR_PWM_EN:        data_read = {7'b0, pwm_en};
+            ADDR_PWM_EN:        r_data_read = {7'b0, r_pwm_en};
 
-            ADDR_FUNCTIONS:     data_read = functions;
+            ADDR_FUNCTIONS:     r_data_read = r_functions;
 
-            default:            data_read = 8'h00;
+            default:            r_data_read = 8'h00;
         endcase
     end else begin
-        data_read = 8'h00;
+        r_data_read = 8'h00;
     end
 end
 
